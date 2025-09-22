@@ -9,6 +9,9 @@
     "monitor": "node monitor.js",
     "start:prod": "node src/index.js & node monitor.js"
   },
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
