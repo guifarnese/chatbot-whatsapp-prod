@@ -247,6 +247,78 @@ client.on('message', async (message) => {
 });
 
 // Minimal Express server for healthcheck and webhooks
+// Rota principal - exibe página com QR code
+app.get('/', (_req, res) => {
+  const pngPath = path.join(tempDir, 'whatsapp-qr.png');
+  if (fs.existsSync(pngPath)) {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>WhatsApp Bot - QR Code</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+          body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
+          .container { max-width: 500px; margin: 0 auto; }
+          .qr-code { margin: 20px 0; }
+          .status { color: #28a745; font-weight: bold; }
+          .instructions { color: #6c757d; margin-top: 20px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>🤖 WhatsApp Bot</h1>
+          <div class="status">✅ Bot online e funcionando!</div>
+          <div class="qr-code">
+            <h3>Escaneie o QR Code com seu WhatsApp:</h3>
+            <img src="/qr" alt="QR Code" style="max-width: 100%; border: 1px solid #ddd; padding: 10px;">
+          </div>
+          <div class="instructions">
+            <p>1. Abra o WhatsApp no seu celular</p>
+            <p>2. Vá em Configurações > Aparelhos conectados</p>
+            <p>3. Toque em "Conectar um aparelho"</p>
+            <p>4. Escaneie o código QR acima</p>
+          </div>
+          <p><small>A página será atualizada automaticamente a cada 10 segundos</small></p>
+        </div>
+        <script>
+          setTimeout(() => window.location.reload(), 10000);
+        </script>
+      </body>
+      </html>
+    `;
+    return res.send(html);
+  } else {
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>WhatsApp Bot - Carregando</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+          body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
+          .container { max-width: 500px; margin: 0 auto; }
+          .loading { color: #ffc107; font-weight: bold; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <h1>🤖 WhatsApp Bot</h1>
+          <div class="loading">⏳ Carregando... Aguarde o QR Code aparecer</div>
+          <p><small>A página será atualizada automaticamente a cada 5 segundos</small></p>
+        </div>
+        <script>
+          setTimeout(() => window.location.reload(), 5000);
+        </script>
+      </body>
+      </html>
+    `;
+    return res.send(html);
+  }
+});
+
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
