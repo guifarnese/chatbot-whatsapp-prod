@@ -280,10 +280,10 @@ app.get('/', (_req, res) => {
             <p>3. Toque em "Conectar um aparelho"</p>
             <p>4. Escaneie o código QR acima</p>
           </div>
-          <p><small>A página será atualizada automaticamente a cada 10 segundos</small></p>
+          <p><small>A página será atualizada automaticamente a cada 60 segundos</small></p>
         </div>
         <script>
-          setTimeout(() => window.location.reload(), 10000);
+          setTimeout(() => window.location.reload(), 60000);
         </script>
       </body>
       </html>
@@ -307,10 +307,10 @@ app.get('/', (_req, res) => {
         <div class="container">
           <h1>🤖 WhatsApp Bot</h1>
           <div class="loading">⏳ Carregando... Aguarde o QR Code aparecer</div>
-          <p><small>A página será atualizada automaticamente a cada 5 segundos</small></p>
+          <p><small>A página será atualizada automaticamente a cada 30 segundos</small></p>
         </div>
         <script>
-          setTimeout(() => window.location.reload(), 5000);
+          setTimeout(() => window.location.reload(), 30000);
         </script>
       </body>
       </html>
