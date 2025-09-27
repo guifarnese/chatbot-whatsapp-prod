@@ -155,8 +155,54 @@ client.on('disconnected', (reason) => {
   }, 3000);
 });
 
+// Função para carregar mensagem padrão do arquivo
+function loadDefaultMessage() {
+  try {
+    const messagePath = path.join(__dirname, 'mensagem.md');
+
+    // Verificar se o arquivo existe e é legível
+    if (fs.existsSync(messagePath)) {
+      const stats = fs.statSync(messagePath);
+      if (!stats.isFile()) {
+        throw new Error('mensagem.md não é um arquivo válido');
+      }
+
+      const content = fs.readFileSync(messagePath, 'utf8').trim();
+      if (!content) {
+        throw new Error('Arquivo mensagem.md está vazio');
+      }
+
+      console.log('Mensagem padrão carregada com sucesso do arquivo mensagem.md');
+      return content;
+    }
+
+    console.warn('Arquivo mensagem.md não encontrado, usando mensagem de fallback');
+    return 'Olá! 👋\nEste WhatsApp é exclusivo para o *processo seletivo da vaga de Auxiliar de Produção*.\n\n📌 Para participar: envie seu *nome completo* e seu *currículo atualizado*.';
+
+  } catch (error) {
+    console.error('Erro ao carregar mensagem padrão:', error?.message || error);
+
+    // Mensagem de fallback super robusta
+    return 'Olá! 👋\nEste WhatsApp é exclusivo para processo seletivo.\nPor favor, envie seu nome completo e currículo atualizado.';
+  }
+}
+
+// Cache da mensagem padrão com atualização automática
+let cachedMessage = null;
+let lastMessageLoad = 0;
+const MESSAGE_CACHE_TTL = 5 * 60 * 1000; // 5 minutos
+
+function getDefaultMessage() {
+  const now = Date.now();
+  if (!cachedMessage || (now - lastMessageLoad) > MESSAGE_CACHE_TTL) {
+    cachedMessage = loadDefaultMessage();
+    lastMessageLoad = now;
+  }
+  return cachedMessage;
+}
+
 // Buffer de mensagens por chat para evitar múltiplas respostas consecutivas
-// chatId -> { hasMedia: boolean, lastReceivedAtMs: number, timer: Timeout|null }
+// chatId -> { lastReceivedAtMs: number, timer: Timeout|null }
 const chatBuffers = new Map();
 
 function scheduleReply(chatId) {
@@ -174,36 +220,61 @@ function scheduleReply(chatId) {
       // Buscar mensagens recentes para garantir que lemos tudo antes de responder
       const messages = await chat.fetchMessages({ limit: FETCH_LIMIT }).catch(() => []);
       let newestInboundTsMs = buffer.lastReceivedAtMs || 0;
-      let inboundHasMedia = false;
       for (const m of messages) {
         if (m && m.fromMe === false) {
           const tsMs = (typeof m.timestamp === 'number' ? m.timestamp * 1000 : 0);
           if (tsMs > newestInboundTsMs) {
             newestInboundTsMs = tsMs;
           }
-          if (m.hasMedia === true) inboundHasMedia = true;
         }
       }
 
       // Se identificamos mensagens mais novas do contato, atualizar buffer e aguardar mais
       if (newestInboundTsMs > (buffer.lastReceivedAtMs || 0)) {
         buffer.lastReceivedAtMs = newestInboundTsMs;
-        buffer.hasMedia = buffer.hasMedia || inboundHasMedia;
         chatBuffers.set(chatId, buffer);
         // reagendar para garantir janela de silêncio após as novas mensagens
         return scheduleReply(chatId);
       }
 
-      // Nenhuma mensagem nova pendente: marcar como lido e responder uma vez
+      // Nenhuma mensagem nova pendente: marcar como lido e responder
       chatBuffers.delete(chatId);
       await chat.sendSeen().catch(() => {});
-      if (buffer.hasMedia) {
-        await chat.sendMessage(`Seu currículo foi recebido com sucesso! ✅\n\nCaso surjam vagas alinhadas ao seu perfil, nossa equipe entrará em contato.\n\nBoa sorte!  🚀`);
-      } else {
-        await chat.sendMessage(`Olá!\n\n*Envie seu currículo para participar do processo seletivo!* 📩\n\nAgradecemos o seu interesse! 🤗`);
+
+      // Sempre enviar a mensagem padrão do arquivo
+      const defaultMessage = getDefaultMessage();
+      if (!defaultMessage) {
+        console.error('Falha crítica: mensagem padrão não está disponível');
+        return;
       }
+
+      // Tentar enviar mensagem com retry
+      let retryCount = 0;
+      const maxRetries = 3;
+
+      while (retryCount < maxRetries) {
+        try {
+          await chat.sendMessage(defaultMessage);
+          console.log(`Mensagem enviada com sucesso para ${chatId}`);
+          break;
+        } catch (sendError) {
+          retryCount++;
+          console.warn(`Falha ao enviar mensagem (tentativa ${retryCount}/${maxRetries}):`, sendError?.message);
+
+          if (retryCount >= maxRetries) {
+            console.error('Falha crítica: não foi possível enviar mensagem após múltiplas tentativas');
+          } else {
+            // Aguardar antes de retry
+            await new Promise(resolve => setTimeout(resolve, 1000 * retryCount));
+          }
+        }
+      }
+
     } catch (err) {
-      console.error('Erro ao enviar resposta agrupada:', err?.message || err);
+      console.error('Erro crítico ao processar resposta agrupada:', err?.message || err);
+      if (err?.stack) {
+        console.error('Stack trace:', err.stack);
+      }
     }
   }, DEBOUNCE_MS);
 }
@@ -211,38 +282,69 @@ function scheduleReply(chatId) {
 // Core bot logic com robustez
 client.on('message', async (message) => {
   try {
+    // Validações básicas de entrada
+    if (!message || !message.from) {
+      console.warn('Mensagem inválida recebida - ignorando');
+      return;
+    }
+
     const from = message.from; // ex.: 5511999999999@c.us
     const isStatus = from?.includes('status@broadcast');
-    if (isStatus) return;
+    if (isStatus) {
+      console.log('Ignorando status broadcast');
+      return;
+    }
 
     // Ignorar mensagens enviadas por nós mesmos (evita loop)
-    if (message.fromMe) return;
+    if (message.fromMe) {
+      console.log('Ignorando mensagem própria');
+      return;
+    }
 
-    const chat = await message.getChat();
+    // Validar chat
+    let chat;
+    try {
+      chat = await message.getChat();
+    } catch (chatError) {
+      console.error('Erro ao obter chat:', chatError?.message);
+      return;
+    }
+
     // Não enviar mensagens em grupos
-    if (chat?.isGroup) return;
+    if (chat?.isGroup) {
+      console.log('Ignorando mensagem de grupo');
+      return;
+    }
 
     const hasMedia = message?.hasMedia === true;
-    console.log(`Mensagem recebida de ${from}. hasMedia=${hasMedia}. isGroup=${chat?.isGroup ? 'true' : 'false'}`);
+    console.log(`✅ Mensagem válida recebida de ${from}. hasMedia=${hasMedia}. Processando...`);
 
-    // Encaminhar (opcional) para Chatwoot webhook
-    forwardToChatwootWebhook({
-      type: 'incoming_whatsapp_message',
-      from,
-      hasMedia,
-      body: message.body,
-      timestamp: Date.now()
-    });
+    // Encaminhar (opcional) para Chatwoot webhook - não bloquear por falhas
+    try {
+      forwardToChatwootWebhook({
+        type: 'incoming_whatsapp_message',
+        from,
+        hasMedia,
+        body: message.body || '',
+        timestamp: Date.now()
+      });
+    } catch (webhookError) {
+      console.warn('Falha ao encaminhar para webhook (não crítico):', webhookError?.message);
+    }
 
     // Atualiza buffer e agenda resposta única por janela de tempo
     const chatId = from;
-    const existing = chatBuffers.get(chatId) || { hasMedia: false, lastReceivedAtMs: 0, timer: null };
-    existing.hasMedia = existing.hasMedia || hasMedia;
+    const existing = chatBuffers.get(chatId) || { lastReceivedAtMs: 0, timer: null };
     existing.lastReceivedAtMs = Date.now();
     chatBuffers.set(chatId, existing);
     scheduleReply(chatId);
+
   } catch (error) {
-    console.error('Erro ao processar mensagem:', error?.message);
+    console.error('Erro crítico ao processar mensagem:', error?.message || error);
+    if (error?.stack) {
+      console.error('Stack trace:', error.stack);
+    }
+    // Não relançar o erro para não crashar o processo
   }
 });
 

@@ -1,0 +1,12 @@
+Olá! 👋
+Este WhatsApp é exclusivo para o *processo seletivo da vaga de Auxiliar de Produção*.
+                                                                                                                                                                           📌 Para participar: envie seu *nome completo* e seu *currículo atualizado*.
+                                                                                                                                                                         📋 Requisitos da vaga:
+*▪️ Disponibilidade de horários.*
+▪️ Residir na região de Betim.                                                                                                                               ▪️ Experiência como auxiliar de produção, logística, expedição ou ajudante industrial.
+*⚠️Atenção: Envie o currículo apenas se você atender aos requisitos!🙏🏻*
+                                                                                                                                                                             📨 Se você já enviou, basta aguardar: caso seu perfil seja compatível, entraremos em contato.
+                                                                                                                                                                              🔒 Importante: esta é uma vaga com *contrato terceirizado*. A empresa solicita sigilo, mas fique tranquilo, informaremos o nome da indústria antes da entrevista.                                                                                                     
+                                                                                                                                                                         📞 Perguntas: este canal não responde mensagens. Em caso de dúvidas, ligue para (31) 2128-6133.
+                                                                                                                                                                            📲 Fique de olho nas próximas vagas em nosso Instagram: https://www.instagram.com/hjr_recursoshumanos?igsh=cTkxemlneXF5ZWo1&utm_source=qr
+                                                                                                                                                                                 Boa sorte! 🍀🤞
